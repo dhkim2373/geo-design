@@ -1,0 +1,114 @@
+// src/pages/Home/MainDashboard.less
+.nx-main-dashboard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: #fff;
+  font-size: 12px;
+
+  .nx-dash-toolbar {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+
+    .nx-action-btn {
+      height: 24px;
+      font-size: 11px;
+      margin-right: 12px;
+      background: #4679b4;
+      border-color: #356294;
+    }
+
+    .nx-filter-group {
+      display: flex;
+      align-items: center;
+      .filter-label {
+        font-weight: bold;
+        margin-right: 6px;
+        color: #333;
+      }
+    }
+  }
+
+  .nx-dash-body {
+    flex: 1;
+    display: flex;
+    border: 1px solid #b8c6d9;
+    overflow: hidden;
+
+    .nx-grid-panel {
+      width: 420px;
+      border-right: 1px solid #b8c6d9;
+      display: flex;
+      flex-direction: column;
+
+      .nx-grid-header {
+        display: flex;
+        background: #e2eaf4;
+        border-bottom: 1px solid #b8c6d9;
+        font-weight: bold;
+        text-align: center;
+        height: 24px;
+        line-height: 24px;
+
+        .col-cell {
+          border-right: 1px solid #c9d5e4;
+          &.w-date { width: 120px; }
+          &.w-title { flex: 1; border-right: none; }
+        }
+      }
+
+      .nx-grid-content {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+    }
+
+    .nx-detail-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #fafbfc;
+
+      .nx-form-table {
+        border-bottom: 1px solid #b8c6d9;
+
+        .nx-tr {
+          display: flex;
+          border-bottom: 1px solid #e1e7f0;
+          &:last-child { border-bottom: none; }
+
+          .nx-th {
+            width: 85px;
+            background: #eef3f9;
+            padding: 4px 8px;
+            border-right: 1px solid #e1e7f0;
+            font-size: 11px;
+            color: #444;
+            display: flex;
+            align-items: center;
+          }
+
+          .nx-td {
+            padding: 3px 6px;
+            border-right: 1px solid #e1e7f0;
+            display: flex;
+            align-items: center;
+            &.full { flex: 1; border-right: none; }
+            &.colspan { flex: 1; border-right: none; }
+          }
+        }
+      }
+
+      .nx-detail-content {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+    }
+  }
+}

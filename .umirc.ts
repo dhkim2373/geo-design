@@ -1,0 +1,36 @@
+import { defineConfig } from '@umijs/max';
+
+export default defineConfig({
+  antd: {},
+  access: {},
+  model: {},
+  initialState: {},
+  request: {},
+  
+  // Umi 기본 레이아웃 끄기 (우리가 만든 MdiLayout 사용)
+  layout: false,
+
+  // 7000번 React 개발서버 -> 80번 FSP 백엔드 서버 프록시 연결
+  proxy: {
+    '/NMain': {
+      target: 'http://localhost:80',
+      changeOrigin: true,
+    },
+    '/downloadWeb': {
+      target: 'http://localhost:80',
+      changeOrigin: true,
+    },
+  },
+
+  routes: [
+    {
+      path: '/',
+      component: '@/layouts/MdiLayout',
+    },
+    {
+      path: '/*',
+      redirect: '/',
+    },
+  ],
+  npmClient: 'npm',
+});
