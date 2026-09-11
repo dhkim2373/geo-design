@@ -10,14 +10,14 @@ export default defineConfig({
   // Umi 기본 레이아웃 끄기 (우리가 만든 MdiLayout 사용)
   layout: false,
 
-  // 7000번 React 개발서버 -> 80번 FSP 백엔드 서버 프록시 연결
+  // 7000번 React 개발서버 -> 8080번 FSP 백엔드 서버 프록시 연결
   proxy: {
     '/NMain': {
-      target: 'http://localhost:80',
+      target: 'https://tpl.geoweb.kr',
       changeOrigin: true,
     },
     '/downloadWeb': {
-      target: 'http://localhost:80',
+      target: 'https://tpl.geoweb.kr',
       changeOrigin: true,
     },
   },

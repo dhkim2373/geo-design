@@ -1,160 +1,200 @@
-// src/pages/Login/LoginPage.less
-.nx-login-wrapper {
+.tpl-login-wrapper {
   width: 100vw;
   height: 100vh;
   background: #ffffff;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  user-select: none;
+  justify-content: center;
+  overflow: hidden;
 
-  .nx-login-header {
-    text-align: center;
-    margin-bottom: 24px;
-
-    .nx-logo-title {
-      font-family: 'Brush Script MT', cursive, sans-serif;
-      font-size: 58px;
-      font-weight: bold;
-      color: #1a428a;
-      margin: 0 0 4px 0;
-      letter-spacing: 1px;
-    }
-
-    .nx-sub-title {
-      font-size: 14px;
-      color: #555;
-      margin: 0;
-
-      strong {
-        color: #222;
-        margin-left: 6px;
-      }
-      .blue-point {
-        color: #1765c1;
-        font-weight: bold;
-      }
-    }
-  }
-
-  .nx-login-card {
-    width: 620px;
-    height: 250px;
-    background: #f7faff;
-    border: 1px solid #c7d8ed;
-    border-radius: 8px;
-    box-shadow: 0 4px 14px rgba(0, 50, 130, 0.06);
+  .tpl-login-container {
+    width: 769px;
+    height: 352px;
     display: flex;
-    align-items: center;
-    padding: 24px 36px;
-    position: relative;
+    flex-direction: column;
+    user-select: none;
 
-    .nx-visual-box {
-      width: 190px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+    // 상단 타이틀 (st_etc5, st_etc2)
+    .tpl-top-title-area {
+      margin-bottom: 12px;
+      padding-left: 6px;
 
-      .nx-monitor-mockup {
-        width: 140px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-
-        .nx-monitor-screen {
-          width: 130px;
-          height: 90px;
-          background: linear-gradient(135deg, #f2f6fa 0%, #d8e5f3 100%);
-          border: 4px solid #4a5460;
-          border-radius: 5px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
-
-          .screen-lock-icon {
-            font-size: 38px;
-            color: #298dcf;
-          }
-        }
-
-        .nx-monitor-stand {
-          width: 14px;
-          height: 16px;
-          background: #a4b0bd;
-        }
-
-        .nx-monitor-base {
-          width: 60px;
-          height: 6px;
-          background: #7a8694;
-          border-radius: 3px;
-        }
+      .tpl-sub-text {
+        font-size: 12px;
+        color: #6d7d93;
+        margin-bottom: 2px;
       }
-    }
 
-    .nx-form-box {
-      flex: 1;
-      padding-left: 20px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      .tpl-main-welcome {
+        font-size: 19px;
+        font-weight: 500;
+        color: #333333;
 
-      .nx-form-row {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-
-        .nx-label {
-          width: 65px;
-          font-size: 12px;
-          color: #333;
+        .brand-point {
+          color: #010f43;
           font-weight: bold;
         }
 
-        .nx-input {
-          width: 175px;
-          height: 28px;
-          font-size: 12px;
-          border-radius: 2px;
-          border-color: #b0c4de;
+        .version-tag {
+          color: #010f43;
+          font-size: 15px;
+          font-weight: bold;
+          margin-left: 4px;
+        }
+      }
+    }
+
+    // 중앙 카드 박스 (sta_LBox: 715px x 220px 대응)
+    .tpl-login-box {
+      width: 715px;
+      height: 220px;
+      background: #f8fafc;
+      border: 1px solid #d4deec;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      padding: 24px 30px;
+      box-sizing: border-box;
+      box-shadow: 0 4px 14px rgba(0, 20, 50, 0.05);
+
+      // 좌측 그래픽 (sta_ImgLeft: 198px x 168px 대응)
+      .tpl-left-visual {
+        width: 180px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-right: 1px dashed #d5e0ee;
+        padding-right: 25px;
+
+        .visual-circle {
+          width: 86px;
+          height: 86px;
+          background: #eef3f9;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #ccd9ea;
+
+          .visual-icon {
+            font-size: 40px;
+            color: #010f43;
+          }
         }
 
-        &.check-row {
-          padding-left: 65px;
-          margin-bottom: 0;
-
-          .nx-checkbox {
-            font-size: 11px;
-            color: #555;
-          }
+        .visual-label {
+          margin-top: 12px;
+          font-size: 11px;
+          font-weight: bold;
+          color: #556987;
+          letter-spacing: 1px;
         }
       }
 
-      .nx-btn-login-round {
-        position: absolute;
-        right: 45px;
-        top: calc(50% - 35px);
-        width: 70px;
-        height: 70px;
-        border-radius: 50%;
-        background: linear-gradient(180deg, #3282db 0%, #1a56a7 100%);
-        border: 2px solid #14468a;
-        color: #fff;
-        font-weight: bold;
-        font-size: 13px;
-        cursor: pointer;
-        box-shadow: 0 3px 8px rgba(23, 101, 193, 0.35);
-        outline: none;
-        transition: transform 0.1s, background 0.2s;
+      // 우측 폼 (너비 약 440px)
+      .tpl-form-area {
+        flex: 1;
+        padding-left: 30px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        position: relative;
 
-        &:hover {
-          background: linear-gradient(180deg, #4190e8 0%, #2063be 100%);
+        .tpl-inputs-wrapper {
+          width: 285px;
+
+          .tpl-input-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+
+            .tpl-input-label {
+              width: 65px;
+              font-size: 12px;
+              font-weight: bold;
+              font-family: 'Dotum', 'Malgun Gothic', sans-serif;
+              color: #333333;
+            }
+
+            .tpl-input {
+              width: 215px;
+              height: 33px;
+              border: 1px solid #9aadc7;
+              border-radius: 4px;
+              font-size: 12px;
+
+              &:focus,
+              &-focused {
+                border-color: #010f43;
+                box-shadow: 0 0 0 2px rgba(1, 15, 67, 0.1);
+              }
+            }
+          }
         }
 
-        &:active {
-          transform: scale(0.96);
+        // FDL 규격 정사각형 로그인 버튼 (83px x 83px)
+        .tpl-btn-login {
+          width: 83px;
+          height: 81px;
+          margin-left: 14px;
+          background: #0b2265;
+          color: #ffffff;
+          border: 1px solid #061545;
+          border-radius: 4px;
+          font-size: 14px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: background 0.2s, transform 0.1s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          &:hover {
+            background: #123087;
+          }
+
+          &:active {
+            transform: scale(0.98);
+          }
+
+          &:disabled {
+            background: #8b9bb4;
+            cursor: not-allowed;
+          }
+        }
+
+        // 하단 체크박스 및 서브 버튼
+        .tpl-bottom-tools {
+          width: 100%;
+          margin-top: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          .tpl-checkbox {
+            font-size: 12px;
+            color: #444;
+          }
+
+          .tpl-btn-group {
+            display: flex;
+            gap: 6px;
+
+            .tpl-sub-btn {
+              height: 22px;
+              padding: 0 8px;
+              font-size: 11px;
+              border-radius: 2px;
+              border-color: #bcc9db;
+              color: #445566;
+
+              &:hover {
+                border-color: #010f43;
+                color: #010f43;
+              }
+            }
+          }
         }
       }
     }

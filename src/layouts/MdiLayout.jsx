@@ -21,6 +21,48 @@ import './MdiLayout.less';
 
 const { Header, Sider, Content, Footer } = Layout;
 
+// 3depth 이상을 지원하는 재귀 메뉴 트리 빌더 함수
+const buildRecursiveMenuTree = (rows, parentId, searchText) => {
+  const branch = [];
+
+  rows.forEach((row) => {
+    // 넥사크로 컬럼 규격 매핑 (상위메뉴ID / UPPER_MENU_ID / MENU_PARENT)
+    const currentParentId = String(
+      row.UPPER_MENU_ID ?? row.상위메뉴ID ?? row.MENU_PARENT ?? '0'
+    );
+    const menuId = String(row.MENU_ID ?? row.메뉴ID ?? row.화면ID ?? '');
+    const menuLabel = row.MENU_NM ?? row.메뉴명 ?? row.화면명 ?? row.MENU_LABEL ?? '';
+
+    if (currentParentId === String(parentId)) {
+      // 하위 노드 재귀 탐색
+      const children = buildRecursiveMenuTree(rows, menuId, searchText);
+      const isLeaf = children.length === 0;
+
+      // 검색어 필터링 판별: 본인이 매칭되거나 하위 자식 중 매칭되는 것이 있는 경우 포함
+      const isSelfMatch =
+        !searchText ||
+        menuLabel.toLowerCase().includes(searchText.toLowerCase()) ||
+        menuId.toLowerCase().includes(searchText.toLowerCase());
+
+      if (isSelfMatch || !isLeaf) {
+        branch.push({
+          key: menuId,
+          label: menuLabel,
+          icon: isLeaf ? (
+            <FileTextOutlined style={{ fontSize: 13 }} />
+          ) : (
+            <FolderOpenOutlined style={{ fontSize: 13, color: '#1890ff' }} />
+          ),
+          children: isLeaf ? undefined : children,
+          raw: row,
+        });
+      }
+    }
+  });
+
+  return branch;
+};
+
 export default function MdiLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [tabs, setTabs] = useState([]);
@@ -48,67 +90,43 @@ export default function MdiLayout() {
     return () => clearInterval(timer);
   }, []);
 
-  // 1. ds_oMenu 데이터셋 구조 기반 Ant Design 트리 메뉴 생성
+  // 1. gds_menu 데이터셋 기반 3depth 재귀 트리 메뉴 생성
   const menuItems = useMemo(() => {
     const rows = gds_menu.rows || [];
     if (rows.length === 0) return [];
 
-    // 메뉴 정렬: MENU_ORDER 또는 MENU_SORT 기준
-    const sortedRows = [...rows].sort((a, b) =>
-      String(a.MENU_ORDER || '').localeCompare(String(b.MENU_ORDER || ''))
-    );
-
-    const rootNodes = [];
-    const childMap = {};
-
-    sortedRows.forEach((row) => {
-      // 검색어가 있으면 필터링
-      if (
-        menuSearchText &&
-        !String(row.MENU_LABEL || '').includes(menuSearchText) &&
-        !String(row.MENU_ID || '').includes(menuSearchText)
-      ) {
-        return;
-      }
-
-      const isRoot = row.MENU_PARENT === 'root_menu' || !row.MENU_PARENT;
-      const node = {
-        key: row.MENU_ID,
-        label: row.MENU_LABEL, // 한글 메뉴명 매핑
-        icon: isRoot ? <FolderOpenOutlined /> : <FileTextOutlined />,
-        raw: row,
-      };
-
-      if (isRoot) {
-        rootNodes.push(node);
-      } else {
-        if (!childMap[row.MENU_PARENT]) {
-          childMap[row.MENU_PARENT] = [];
-        }
-        childMap[row.MENU_PARENT].push(node);
-      }
+    // 메뉴 정렬: MENU_ORDER, MENU_SORT, 정렬순서 기준
+    const sortedRows = [...rows].sort((a, b) => {
+      const orderA = a.MENU_ORDER ?? a.MENU_SORT ?? a.정렬순서 ?? 0;
+      const orderB = b.MENU_ORDER ?? b.MENU_SORT ?? b.정렬순서 ?? 0;
+      return String(orderA).localeCompare(String(orderB), undefined, { numeric: true });
     });
 
-    // 루트 폴더 아래에 자식 메뉴(MENU) 결합
-    return rootNodes.map((parent) => {
-      const children = childMap[parent.key];
-      if (children && children.length > 0) {
-        return { ...parent, children };
-      }
-      return parent;
-    });
+    // 최상위 parentId 판별 ('0', 'root_menu', null, 빈값 등 포괄 대응)
+    const firstRowParent = sortedRows[0]?.UPPER_MENU_ID ?? sortedRows[0]?.MENU_PARENT ?? '0';
+    const rootId = sortedRows.some((r) => (r.UPPER_MENU_ID ?? r.MENU_PARENT) === '0')
+      ? '0'
+      : firstRowParent;
+
+    return buildRecursiveMenuTree(sortedRows, rootId, menuSearchText.trim());
   }, [gds_menu.rows, menuSearchText]);
 
-  // 2. 메뉴 클릭 시 탭 열기
-  const handleMenuClick = ({ key }) => {
-    const foundRow = gds_menu.rows.find((r) => r.MENU_ID === key);
+  // 2. 메뉴 클릭 시 탭 열기 (하위 폴더 클릭은 무시)
+  const handleMenuClick = ({ key, item }) => {
+    const foundRow =
+      item?.props?.raw ||
+      gds_menu.rows?.find((r) => String(r.MENU_ID ?? r.메뉴ID ?? r.화면ID) === String(key));
+
     if (!foundRow) return;
 
-    // 대메뉴(POPUP/폴더) 클릭은 무시
-    if (foundRow.MENU_TYPE === 'POPUP' && foundRow.MENU_PARENT === 'root_menu') {
-      return;
-    }
+    // 하위 자식이 있는 폴더 메뉴인 경우 탭 오픈 생략
+    const isFolder = gds_menu.rows?.some((r) => {
+      const parentId = String(r.UPPER_MENU_ID ?? r.상위메뉴ID ?? r.MENU_PARENT ?? '');
+      return parentId === String(key);
+    });
+    if (isFolder) return;
 
+    const menuLabel = foundRow.MENU_NM ?? foundRow.메뉴명 ?? foundRow.화면명 ?? foundRow.MENU_LABEL;
     const Comp = getComponentByMenu(foundRow);
 
     setTabs((prev) => {
@@ -117,7 +135,7 @@ export default function MdiLayout() {
         ...prev,
         {
           key,
-          title: foundRow.MENU_LABEL,
+          title: menuLabel,
           menuRow: foundRow,
           Component: Comp,
           closable: true,
@@ -191,15 +209,21 @@ export default function MdiLayout() {
         </div>
         <div className="mdi-header-right">
           <Space size={6}>
-            <Tooltip title="도움말"><Button type="text" icon={<QuestionCircleOutlined />} /></Tooltip>
-            <Tooltip title="즐겨찾기"><Button type="text" icon={<StarOutlined />} /></Tooltip>
-            <Tooltip title="모두 닫기"><Button type="text" icon={<CloseOutlined />} onClick={closeAllTabs} /></Tooltip>
+            <Tooltip title="도움말">
+              <Button type="text" icon={<QuestionCircleOutlined />} />
+            </Tooltip>
+            <Tooltip title="즐겨찾기">
+              <Button type="text" icon={<StarOutlined />} />
+            </Tooltip>
+            <Tooltip title="모두 닫기">
+              <Button type="text" icon={<CloseOutlined />} onClick={closeAllTabs} />
+            </Tooltip>
           </Space>
         </div>
       </Header>
 
       <Layout className="mdi-body-layout">
-        {/* 좌측 동적 트리 메뉴 */}
+        {/* 좌측 사이드바: 고정 검색창 + 전용 스크롤 메뉴 트리 + 하단 툴 */}
         <Sider width={220} className="mdi-sider-panel">
           <div className="mdi-menu-search">
             <Input
@@ -211,16 +235,18 @@ export default function MdiLayout() {
               allowClear
             />
           </div>
+
           <div className="mdi-tree-menu-container">
             <Menu
               mode="inline"
-              defaultOpenKeys={['S0000', 'C0000', 'D0000', 'A9000']}
+              inlineIndent={14}
               selectedKeys={[activeKey]}
               onClick={handleMenuClick}
               items={menuItems}
               className="mdi-side-menu"
             />
           </div>
+
           <div className="mdi-sider-bottom-tools">
             <Button type="text" size="small" icon={<StarOutlined />}>즐겨찾기</Button>
             <Button type="text" size="small" icon={<DesktopOutlined />}>최근메뉴</Button>
@@ -252,7 +278,7 @@ export default function MdiLayout() {
         </Content>
       </Layout>
 
-      {/* 하단 넥사크로 상태바 */}
+      {/* 하단 상태바 */}
       <Footer className="mdi-status-bar">
         <div className="mdi-status-left">
           <span className="status-item blue-text">0건 조회되었습니다.</span>

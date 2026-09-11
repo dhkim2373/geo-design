@@ -1,0 +1,84 @@
+.serial-mgmt-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+
+  // 1. 공통 툴바
+  .serial-toolbar {
+    height: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+
+    .barcode-badge {
+      font-weight: 500;
+      padding: 3px 8px;
+    }
+  }
+
+  // 2. 검색 조건부
+  .serial-search-box {
+    background: #f8fafc;
+    border: 1px solid #d9e2ec;
+    border-radius: 4px;
+    padding: 6px 12px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+
+    .serial-form {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      .form-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+
+        .form-col {
+          display: flex;
+          align-items: center;
+
+          .field-label {
+            width: 75px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #334155;
+            text-align: right;
+            margin-right: 8px;
+
+            &.compulsory::before {
+              content: '*';
+              color: #ff4d4f;
+              margin-right: 3px;
+            }
+          }
+
+          .readonly-input {
+            background-color: #f1f5f9;
+            color: #475569;
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Glide Data Grid 캔버스 래퍼
+  .serial-table-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    border-radius: 2px;
+    position: relative;
+    background: #ffffff;
+  }
+}

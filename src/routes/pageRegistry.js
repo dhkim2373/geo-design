@@ -2,6 +2,7 @@
 import React from 'react';
 import MainDashboard from '@/pages/Home/MainDashboard';
 import BuildingManagement from '@/pages/Building/BuildingManagement';
+import SerialManagement from '@/pages/Tpl/SerialManagement';
 
 // 미개발 화면용 기본 플레이스홀더
 const ReadyPage = ({ title, url, menuId }) => (
@@ -23,7 +24,7 @@ export const URL_COMPONENT_MAP = {
 // 2. MENU_ID 기준 보조 매핑
 export const MENU_ID_COMPONENT_MAP = {
   HOME: MainDashboard,
-  C0020: BuildingManagement, // 건축물대장조회
+  T2040: SerialManagement // 일련번호관리
 };
 
 /**

@@ -15,7 +15,7 @@ html, body, #root {
   background: #f0f2f5;
   overflow: hidden;
 
-  // 상단 헤더
+  // 1. 상단 헤더 및 MDI 탭 바
   .mdi-top-header {
     height: 34px;
     line-height: 34px;
@@ -37,6 +37,14 @@ html, body, #root {
         font-size: 15px;
         color: #1890ff;
         margin-right: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &.active {
+          background: #ffffff;
+          border-radius: 4px;
+        }
       }
 
       .mdi-tab-bar {
@@ -65,53 +73,146 @@ html, body, #root {
         }
       }
     }
+
+    .mdi-header-right {
+      flex-shrink: 0;
+      .ant-btn-text {
+        color: #555;
+        &:hover {
+          color: #1890ff;
+          background: rgba(0, 0, 0, 0.04);
+        }
+      }
+    }
   }
 
-  // 본문 레이아웃
+  // 2. 본문 레이아웃
   .mdi-body-layout {
     flex: 1;
     display: flex;
     overflow: hidden;
 
+    // 좌측 사이드바 패널
     .mdi-sider-panel {
-      height: 100%;
-      background: #f7f9fc;
+      height: 100% !important;
+      max-height: 100% !important;
+      background: #f7f9fc !important;
       border-right: 1px solid #b8c6d9;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      overflow: hidden !important;
 
-      .mdi-menu-search {
-        padding: 6px;
-        border-bottom: 1px solid #e1e7f0;
+      // [핵심] Ant Design Layout.Sider 내부 래퍼 flex 강제 적용
+      .ant-layout-sider-children {
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
       }
 
+      // 상단 메뉴 검색창 고정
+      .mdi-menu-search {
+        flex-shrink: 0;
+        padding: 6px 8px;
+        border-bottom: 1px solid #e1e7f0;
+        background: #f7f9fc;
+
+        .ant-input-affix-wrapper {
+          border-radius: 3px;
+          font-size: 12px;
+          border-color: #c5d4e4;
+        }
+      }
+
+      // 메뉴 트리 스크롤 전용 영역
       .mdi-tree-menu-container {
-        flex: 1;
-        overflow-y: auto;
-        
+        flex: 1 1 0% !important;   // 남은 세로 영역을 정확히 할당
+        min-height: 0 !important;   // flex 자식 높이 축소 허용 (스크롤 트리거 필수 조건)
+        overflow-y: auto !important; // 내용 초과 시 즉각 스크롤바 활성화
+        overflow-x: hidden !important;
+
+        // 슬림 스크롤바 커스텀
+        &::-webkit-scrollbar {
+          width: 6px !important;
+        }
+        &::-webkit-scrollbar-thumb {
+          background: #b5c5d6 !important;
+          border-radius: 3px;
+          &:hover {
+            background: #8ea4bc !important;
+          }
+        }
+        &::-webkit-scrollbar-track {
+          background: #eef3f8 !important;
+        }
+
+        // 3depth Ant Menu 스타일
         .mdi-side-menu {
           background: transparent;
+          border-right: none;
           font-size: 12px;
-          .ant-menu-item, .ant-menu-submenu-title {
-            height: 28px;
-            line-height: 28px;
-            margin: 0;
+          user-select: none;
+
+          .ant-menu-item,
+          .ant-menu-submenu-title {
+            height: 28px !important;
+            line-height: 28px !important;
+            margin: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            font-size: 12px;
+            color: #333333;
+
+            &:hover {
+              background-color: #e6f7ff !important;
+              color: #1890ff;
+            }
+          }
+
+          // 2~3depth 서브메뉴(폴더) 열렸을 때
+          .ant-menu-submenu-open > .ant-menu-submenu-title {
+            font-weight: bold;
+            color: #0b2265;
+          }
+
+          // 2~3depth 하위 컨테이너 배경 구분
+          .ant-menu-sub.ant-menu-inline {
+            background: #eef3f9 !important;
+          }
+
+          // 화면 선택 시 Active 표시
+          .ant-menu-item-selected {
+            background-color: #e1effe !important;
+            color: #1890ff !important;
+            font-weight: bold;
+            border-right: 3px solid #1890ff;
           }
         }
       }
 
+      // 하단 퀵 툴바 (즐겨찾기, 최근메뉴, 설정) 고정
       .mdi-sider-bottom-tools {
+        flex-shrink: 0;
+        height: 30px;
         border-top: 1px solid #d4deec;
         background: #e9eef5;
-        padding: 4px;
+        padding: 0 4px;
         display: flex;
         justify-content: space-around;
-        button { font-size: 11px; padding: 0 4px; }
+        align-items: center;
+
+        button {
+          font-size: 11px;
+          padding: 0 4px;
+          height: 24px;
+          color: #485b73;
+
+          &:hover {
+            color: #1890ff;
+          }
+        }
       }
     }
 
-    // 뷰포트 영역 (불필요한 바깥쪽 스크롤 제거)
+    // 메인 뷰포트 영역
     .mdi-content-viewport {
       flex: 1;
       height: 100%;
@@ -127,7 +228,7 @@ html, body, #root {
     }
   }
 
-  // 하단 상태바
+  // 3. 하단 상태바
   .mdi-status-bar {
     height: 25px;
     line-height: 25px;
@@ -140,14 +241,35 @@ html, body, #root {
     color: #555;
     flex-shrink: 0;
 
-    .status-divider {
-      margin: 0 8px;
-      color: #b8c6d9;
+    .mdi-status-left {
+      display: flex;
+      align-items: center;
+
+      .blue-text {
+        color: #1890ff;
+        font-weight: 500;
+      }
     }
-    .status-logout {
-      color: #d9363e;
-      cursor: pointer;
-      margin-left: 4px;
+
+    .mdi-status-right {
+      display: flex;
+      align-items: center;
+
+      .status-divider {
+        margin: 0 8px;
+        color: #b8c6d9;
+      }
+
+      .status-logout {
+        color: #d9363e;
+        cursor: pointer;
+        margin-left: 4px;
+        font-weight: 500;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
     }
   }
 }
