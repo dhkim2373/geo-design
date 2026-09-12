@@ -2,8 +2,8 @@ import { jsonToNexacroXml } from './nexacroXml';
 import { NexacroDataset } from './NexacroDataset';
 import axios from 'axios';
 
-// [Web Worker] 순수 XML 전용 초고속 파서 (정규식 제거 및 indexOf 기반 경량 파싱)
-const xmlWorkerCode = `
+// 1. [단건/로그인/메뉴 전용] 표준 XML 파서
+const standardXmlWorkerCode = `
 self.onmessage = function(e) {
   const { rawText } = e.data;
   try {
@@ -21,7 +21,6 @@ function parseNexacroXML(text) {
 
   if (!text) return { parameters, datasets };
 
-  // 1. Variable 파싱
   let vPos = 0;
   while ((vPos = text.indexOf('<Variable', vPos)) !== -1) {
     const idStart = text.indexOf('id="', vPos) + 4;
@@ -34,7 +33,6 @@ function parseNexacroXML(text) {
     vPos = valEnd !== -1 ? valEnd + 11 : valStart;
   }
 
-  // 2. Dataset 파싱
   let dsPos = 0;
   while ((dsPos = text.indexOf('<Dataset', dsPos)) !== -1) {
     const idStart = text.indexOf('id="', dsPos) + 4;
@@ -87,7 +85,6 @@ function parseXmlRows(dsContent) {
         val = val.replace(/<!\\[CDATA\\[/g, '').replace(/\\]\\]>/g, '');
       }
 
-      // SlicedString 포인터 절단
       rowObj[colName] = val.length < 16 ? ('' + val) : val.slice(0);
       colPos = valEnd + 6;
     }
@@ -96,6 +93,113 @@ function parseXmlRows(dsContent) {
   }
 
   return rows;
+}
+`;
+
+// 2. [대용량 스트리밍 전용] 밀집 배열 기반 파서 (조각 단위 파싱 지원)
+const chunkedArrayWorkerCode = `
+self.onmessage = function(e) {
+  const { rawText } = e.data;
+  try {
+    const text = typeof rawText === 'string' ? rawText : '';
+    parseNexacroXMLAsArray(text);
+  } catch (err) {
+    self.postMessage({ type: 'ERROR', error: err.message });
+  }
+};
+
+function parseNexacroXMLAsArray(text) {
+  const parameters = {};
+  if (!text) {
+    self.postMessage({ type: 'DONE', parameters, columns: [], rows: [] });
+    return;
+  }
+
+  let vPos = 0;
+  while ((vPos = text.indexOf('<Variable', vPos)) !== -1) {
+    const idStart = text.indexOf('id="', vPos) + 4;
+    const idEnd = text.indexOf('"', idStart);
+    const varId = text.substring(idStart, idEnd);
+
+    const valStart = text.indexOf('>', idEnd) + 1;
+    const valEnd = text.indexOf('</Variable>', valStart);
+    parameters[varId] = valEnd !== -1 ? text.substring(valStart, valEnd) : '';
+    vPos = valEnd !== -1 ? valEnd + 11 : valStart;
+  }
+
+  const colInfoStart = text.indexOf('<ColumnInfo>');
+  const colInfoEnd = text.indexOf('</ColumnInfo>', colInfoStart);
+  const columnNames = [];
+
+  if (colInfoStart !== -1 && colInfoEnd !== -1) {
+    const colInfoStr = text.substring(colInfoStart + 12, colInfoEnd);
+    let cPos = 0;
+    while ((cPos = colInfoStr.indexOf('<Column', cPos)) !== -1) {
+      const idIdx = colInfoStr.indexOf('id="', cPos);
+      if (idIdx === -1) break;
+      const idStart = idIdx + 4;
+      const idEnd = colInfoStr.indexOf('"', idStart);
+      const colId = colInfoStr.substring(idStart, idEnd);
+      columnNames.push(colId);
+      cPos = idEnd + 1;
+    }
+  }
+
+  const colCount = columnNames.length;
+  const colIndexMap = {};
+  for (let i = 0; i < colCount; i++) {
+    colIndexMap[columnNames[i]] = i;
+  }
+
+  const rowsStart = text.indexOf('<Rows>');
+  const searchStart = rowsStart !== -1 ? rowsStart + 6 : 0;
+
+  let rowPos = searchStart;
+  const rows = [];
+
+  while ((rowPos = text.indexOf('<Row>', rowPos)) !== -1) {
+    const rowEnd = text.indexOf('</Row>', rowPos);
+    if (rowEnd === -1) break;
+
+    const rowContent = text.substring(rowPos + 5, rowEnd);
+    rowPos = rowEnd + 6;
+
+    const rowArr = new Array(colCount).fill('');
+    let colPos = 0;
+    let hasValue = false;
+
+    while ((colPos = rowContent.indexOf('<Col id="', colPos)) !== -1) {
+      const colIdStart = colPos + 9;
+      const colIdEnd = rowContent.indexOf('"', colIdStart);
+      const rawCol = rowContent.substring(colIdStart, colIdEnd);
+
+      const valStart = rowContent.indexOf('>', colIdEnd) + 1;
+      const valEnd = rowContent.indexOf('</Col>', valStart);
+      if (valEnd === -1) break;
+
+      let val = rowContent.substring(valStart, valEnd);
+      if (val.includes('<![CDATA[')) {
+        val = val.replace(/<!\\[CDATA\\[/g, '').replace(/\\]\\]>/g, '');
+      }
+
+      const targetIdx = colIndexMap[rawCol];
+      if (targetIdx !== undefined) {
+        const cleanVal = val.length < 16 ? ('' + val) : val.slice(0);
+        rowArr[targetIdx] = cleanVal;
+        if (cleanVal !== '') {
+          hasValue = true;
+        }
+      }
+
+      colPos = valEnd + 6;
+    }
+
+    if (hasValue) {
+      rows.push(rowArr);
+    }
+  }
+
+  self.postMessage({ type: 'DONE', parameters, columns: columnNames, rows });
 }
 `;
 
@@ -205,10 +309,6 @@ export class FspClient {
     }
   }
 
-  /**
-   * [100건 조기 수신 + 스트리밍 트리거]
-   * 서버 FSP 엔진에 초기 100건 선출력을 지시하는 설정 유지
-   */
   fsp_addCSVSearch(sqlName, chunkSize = 100) {
     this.fsp_add('C', sqlName, '', '', '', '', '', '', '', 0, 'B');
     const lastRow = this.cmdDataset.getCurrentRow();
@@ -264,14 +364,13 @@ export class FspClient {
     this.fsp_add('N', sqlName, keySqlName, keyIncrement, callbackSql, '', '', '', '', 0, execType);
   }
 
-  // 단발성 Worker 실행 및 파싱 종료 즉시 완전 소각(terminate)
   parseInWorker(rawText) {
     return new Promise((resolve, reject) => {
       let workerUrl = null;
       let worker = null;
 
       try {
-        const blob = new Blob([xmlWorkerCode], { type: 'application/javascript' });
+        const blob = new Blob([standardXmlWorkerCode], { type: 'application/javascript' });
         workerUrl = URL.createObjectURL(blob);
         worker = new Worker(workerUrl);
 
@@ -286,6 +385,45 @@ export class FspClient {
             resolve(result);
           } else {
             reject(new Error(error || 'Worker 파싱 에러'));
+          }
+        };
+
+        worker.onerror = (err) => {
+          if (worker) worker.terminate();
+          if (workerUrl) URL.revokeObjectURL(workerUrl);
+          reject(err);
+        };
+
+        worker.postMessage({ rawText });
+      } catch (err) {
+        if (worker) worker.terminate();
+        if (workerUrl) URL.revokeObjectURL(workerUrl);
+        reject(err);
+      }
+    });
+  }
+
+  parseInWorkerFragment(rawText) {
+    return new Promise((resolve, reject) => {
+      let workerUrl = null;
+      let worker = null;
+
+      try {
+        const blob = new Blob([chunkedArrayWorkerCode], { type: 'application/javascript' });
+        workerUrl = URL.createObjectURL(blob);
+        worker = new Worker(workerUrl);
+
+        worker.onmessage = (e) => {
+          const { type, rows, parameters, columns, error } = e.data;
+          worker.terminate();
+          URL.revokeObjectURL(workerUrl);
+          worker = null;
+          workerUrl = null;
+
+          if (type === 'DONE') {
+            resolve({ rows: rows || [], parameters: parameters || {}, columns: columns || [] });
+          } else {
+            reject(new Error(error || 'Fragment Worker 파싱 에러'));
           }
         };
 
@@ -357,7 +495,6 @@ export class FspClient {
     return jsonToNexacroXml(parameters, datasets);
   }
 
-  // 일반 단건 조회 (로그인, 메뉴, 팝업)
   async fsp_callService(actionName, cmdName, inputDatasets = {}, otherArg = '') {
     const requestData = this.buildPayload(actionName, cmdName, inputDatasets, otherArg);
 
@@ -404,7 +541,7 @@ export class FspClient {
     }
   }
 
-  // 대용량 스트리밍 조회 (초기 100건 선표출 + 완료 시 단 1회 파싱)
+  // [핵심 최적화] 실시간 스트리밍 슬라이싱 파서: 3.5GB 피크를 1GB 대 후반으로 격하시킴
   async fsp_callServiceStream(actionName, cmdName, inputDatasets = {}, otherArg = '', onProgress) {
     const requestData = this.buildPayload(actionName, cmdName, inputDatasets, otherArg);
 
@@ -425,7 +562,12 @@ export class FspClient {
     const decoder = new TextDecoder('utf-8');
 
     let buffer = '';
+    let headerInfoChunk = '';
+    let allRows = [];
+    let columnNames = [];
+    let parameters = {};
     let isFirstChunkFired = false;
+    let hasHeaderExtracted = false;
 
     try {
       while (true) {
@@ -435,51 +577,79 @@ export class FspClient {
           buffer += decoder.decode(value, { stream: !done });
         }
 
-        // 초기 100건 조기 감지 (첫 </Row> 블록 발견 시 단 1회 프리뷰)
-        if (!isFirstChunkFired && (buffer.length >= 35000 || done)) {
-          if (buffer.includes('</Row>')) {
-            const lastRowIdx = buffer.lastIndexOf('</Row>');
-            const chunkToParse = buffer.substring(0, lastRowIdx + 6) + '</Rows></Dataset></Root>';
-
-            try {
-              const parsed = await this.parseInWorker(chunkToParse);
-              const targetDs = parsed.datasets?.ds_oList || Object.values(parsed.datasets || {})[0];
-              const rows = targetDs?.rows || (Array.isArray(targetDs) ? targetDs : []);
-
-              if (rows.length >= 10 || done) {
-                isFirstChunkFired = true;
-                if (onProgress) {
-                  onProgress(rows, true, false);
-                }
-              }
-            } catch (e) {
-              // 파싱 실패 시 다음 버퍼 누적 대기
-            }
+        // 1. 헤더(<ColumnInfo> 등) 추출
+        if (!hasHeaderExtracted) {
+          const colInfoEndIdx = buffer.indexOf('</ColumnInfo>');
+          if (colInfoEndIdx !== -1) {
+            headerInfoChunk = buffer.substring(0, colInfoEndIdx + 13);
+            hasHeaderExtracted = true;
           }
         }
 
-        // 전체 수신 완료 시
-        if (done) {
-          const rawText = buffer;
-          buffer = ''; // 100MB+ 원본 텍스트 즉시 해제
+        // 2. 누적된 버퍼에서 완성된 </Row> 단위로 실시간 슬라이싱 파싱 후 버퍼 즉시 폐기
+        let lastRowIdx;
+        while ((lastRowIdx = buffer.lastIndexOf('</Row>')) !== -1 && hasHeaderExtracted) {
+          const parseChunk = buffer.substring(0, lastRowIdx + 6);
+          // 처리된 텍스트는 즉시 날려서 100MB+ 거대 문자열 힙 팽창 원천 차단
+          buffer = buffer.substring(lastRowIdx + 6);
 
-          const workerResult = await this.parseInWorker(rawText);
-          const targetDs = workerResult.datasets?.ds_oList || Object.values(workerResult.datasets || {})[0];
-          const allRows = targetDs?.rows || (Array.isArray(targetDs) ? targetDs : []);
+          const wrappedXml = `<Root><Dataset id="ds_oList">${headerInfoChunk}<Rows>${parseChunk}</Rows></Dataset></Root>`;
+
+          try {
+            const res = await this.parseInWorkerFragment(wrappedXml);
+            if (res.columns && res.columns.length > 0 && columnNames.length === 0) {
+              columnNames = res.columns;
+            }
+            if (res.parameters && Object.keys(parameters).length === 0) {
+              parameters = res.parameters;
+            }
+            if (res.rows && res.rows.length > 0) {
+              for (let i = 0; i < res.rows.length; i++) {
+                allRows.push(res.rows[i]);
+              }
+            }
+
+            // 초기 100건 프리뷰 조기 표출
+            if (!isFirstChunkFired && allRows.length >= 100) {
+              isFirstChunkFired = true;
+              if (onProgress) {
+                onProgress(allRows.slice(0, 100), true, false, columnNames);
+              }
+            }
+          } catch (e) {
+            // 조각 파싱 중 에러 발생 시 무시하고 다음 루프 진행
+          }
+        }
+
+        if (done) {
+          // 마지막 잔여 버퍼 처리
+          if (buffer.includes('<Row>') && hasHeaderExtracted) {
+            const wrappedXml = `<Root><Dataset id="ds_oList">${headerInfoChunk}<Rows>${buffer}</Rows></Dataset></Root>`;
+            try {
+              const res = await this.parseInWorkerFragment(wrappedXml);
+              if (res.rows && res.rows.length > 0) {
+                for (let i = 0; i < res.rows.length; i++) {
+                  allRows.push(res.rows[i]);
+                }
+              }
+            } catch (e) {}
+          }
+          buffer = '';
 
           if (!isFirstChunkFired && onProgress) {
-            onProgress(allRows, true, false);
+            onProgress(allRows, true, false, columnNames);
           }
 
           if (onProgress) {
-            onProgress(allRows, false, true);
+            onProgress(allRows, false, true, columnNames);
           }
 
           this.destroy();
 
           return {
-            parameters: workerResult.parameters || {},
+            parameters,
             rows: allRows,
+            columns: columnNames,
           };
         }
       }

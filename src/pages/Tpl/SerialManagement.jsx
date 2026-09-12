@@ -32,7 +32,6 @@ const GRID_COLUMNS = [
   { id: '삭제', title: '삭제', width: 75 },
 ];
 
-// [메모리 튜닝] 매 셀 렌더링마다 힙에 새 객체를 만들지 않도록 정적 테마 상수로 고정
 const THEMES = {
   focused: { bgCell: '#d8eaff' },
   noDefault: { bgCell: '#fafbfc' },
@@ -47,7 +46,6 @@ export default function SerialManagement() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  // [메모리 최적화] 거대 배열 대신 행 개수(숫자)만 상태로 관리하여 React 메모리 점유 방지
   const [rowCount, setRowCount] = useState(0);
   const [gridKey, setGridKey] = useState(0);
   const [companyList, setCompanyList] = useState([]);
@@ -63,11 +61,11 @@ export default function SerialManagement() {
   const containerRef = useRef(null);
   const tableWrapperRef = useRef(null);
 
-  // 60만 건 원본은 React 렌더링 감시 밖의 단일 Ref에만 보관
+  // 60만 건 배열 및 동적 컬럼 인덱스 맵 보관
   const rawDataRef = useRef([]);
+  const colIndexMapRef = useRef({});
   const renderRafRef = useRef(null);
 
-  // 화면 종료(언마운트) 시 60만 건 참조를 끊어 GC 활성화
   useEffect(() => {
     return () => {
       if (renderRafRef.current) {
@@ -113,7 +111,6 @@ export default function SerialManagement() {
     }
   }, [form]);
 
-  // [핵심] 재조회 시 피크 메모리(2.5GB) 솟구침을 억제한 스트리밍 조회
   const handleSearch = async () => {
     let fsp = null;
     try {
@@ -125,15 +122,14 @@ export default function SerialManagement() {
         return;
       }
 
-      // [튜닝 1] 기존 60만 건 배열 즉시 절단 및 그리드 캐시 리셋
       if (rawDataRef.current) {
         rawDataRef.current.length = 0;
         rawDataRef.current = null;
       }
+      colIndexMapRef.current = {};
       setRowCount(0);
       setGridKey((prev) => prev + 1);
 
-      // [튜닝 2] 브라우저가 이전 거대 힙(1.2GB)을 먼저 수거할 수 있도록 프레임 틱 양보
       await new Promise((resolve) => {
         requestAnimationFrame(() => {
           setTimeout(resolve, 120);
@@ -171,8 +167,15 @@ export default function SerialManagement() {
         '',
         { ds_iList: searchDataset },
         '',
-        (currentRows, isFirst, isDone) => {
-          // [튜닝 3] RAF 스로틀링을 적용하여 스트리밍 도중 불필요한 중복 렌더링 힙 점유 방지
+        (currentRows, isFirst, isDone, columns) => {
+          if (columns && columns.length > 0) {
+            const map = {};
+            columns.forEach((colName, idx) => {
+              map[colName] = idx;
+            });
+            colIndexMapRef.current = map;
+          }
+
           if (renderRafRef.current) {
             cancelAnimationFrame(renderRafRef.current);
           }
@@ -223,6 +226,7 @@ export default function SerialManagement() {
       rawDataRef.current.length = 0;
       rawDataRef.current = [];
     }
+    colIndexMapRef.current = {};
     setRowCount(0);
     setGridKey((prev) => prev + 1);
     setSelectedRowIndex(null);
@@ -230,10 +234,18 @@ export default function SerialManagement() {
     message.destroy('streamMsg');
   };
 
-  const handleOpenDetailModal = async (record) => {
+  const handleOpenDetailModal = async (rowArr) => {
     setDetailModalVisible(true);
     setDetailLoading(true);
     setDetailList([]);
+
+    const map = colIndexMapRef.current;
+    const record = {
+      회사코드: rowArr[map['회사코드']] || form.getFieldValue('회사코드'),
+      표준코드: rowArr[map['표준코드']],
+      로트번호: rowArr[map['로트번호']],
+      일련번호: rowArr[map['일련번호']],
+    };
 
     let fsp = null;
     try {
@@ -251,7 +263,7 @@ export default function SerialManagement() {
           { id: '일련번호', type: 'string', size: '256' },
         ],
         [{
-          회사코드: record.회사코드 || form.getFieldValue('회사코드') || '',
+          회사코드: record.회사코드 || '',
           표준코드: record.표준코드 || '',
           로트번호: record.로트번호 || '',
           일련번호: record.일련번호 || '',
@@ -276,13 +288,19 @@ export default function SerialManagement() {
     }
   };
 
-  const handleDeleteRow = (record) => {
-    if (String(record.삭제가능여부) !== '1') return;
+  const handleDeleteRow = (rowArr) => {
+    const map = colIndexMapRef.current;
+    const delYn = rowArr[map['삭제가능여부']];
+    if (String(delYn) !== '1') return;
+
+    const stdCode = rowArr[map['표준코드']];
+    const serialNo = rowArr[map['일련번호']];
+    const compCode = rowArr[map['회사코드']] || form.getFieldValue('회사코드');
 
     Modal.confirm({
       title: '일련번호 삭제 확인',
       icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
-      content: `해당 일련번호(${record.일련번호})를 삭제하시겠습니까?`,
+      content: `해당 일련번호(${serialNo})를 삭제하시겠습니까?`,
       okText: '삭제',
       okType: 'danger',
       cancelText: '취소',
@@ -301,9 +319,9 @@ export default function SerialManagement() {
               { id: '일련번호', type: 'string', size: '256' },
             ],
             [{
-              회사코드: record.회사코드,
-              표준코드: record.표준코드,
-              일련번호: record.일련번호,
+              회사코드: compCode,
+              표준코드: stdCode,
+              일련번호: serialNo,
             }]
           );
 
@@ -341,7 +359,7 @@ export default function SerialManagement() {
     }
   };
 
-  // [메모리 최적화] 정적 테마 참조 및 인라인 객체 생성 제거
+  // [메모리 최적화] 배열 인덱스 매핑을 통한 고속 셀 데이터 렌더링
   const getCellContent = useCallback(
     ([colIdx, rowIdx]) => {
       const list = rawDataRef.current;
@@ -351,6 +369,7 @@ export default function SerialManagement() {
 
       const row = list[rowIdx];
       const colDef = GRID_COLUMNS[colIdx];
+      const map = colIndexMapRef.current;
       const isFocusedCell = rowIdx === selectedRowIndex && colIdx === selectedColIndex;
 
       if (colDef.id === 'no') {
@@ -366,7 +385,8 @@ export default function SerialManagement() {
       }
 
       if (colDef.id === '일련번호상태명') {
-        const val = row.일련번호상태명 || '';
+        const valIdx = map['일련번호상태명'];
+        const val = valIdx !== undefined ? row[valIdx] : '';
         const isOut = val === '출고';
         return {
           kind: GridCellKind.Text,
@@ -380,7 +400,8 @@ export default function SerialManagement() {
       }
 
       if (colDef.id === '삭제') {
-        const canDel = String(row.삭제가능여부) === '1';
+        const valIdx = map['삭제가능여부'];
+        const canDel = valIdx !== undefined && String(row[valIdx]) === '1';
         return {
           kind: GridCellKind.Text,
           allowOverlay: false,
@@ -392,7 +413,8 @@ export default function SerialManagement() {
         };
       }
 
-      const rawVal = row[colDef.id];
+      const valIdx = map[colDef.id];
+      const rawVal = valIdx !== undefined ? row[valIdx] : '';
       const displayStr = rawVal !== undefined && rawVal !== null ? String(rawVal) : '';
       const isCenter = colDef.id === '유통기한' || colDef.id === '처리일자';
 
@@ -414,14 +436,18 @@ export default function SerialManagement() {
       const list = rawDataRef.current;
       if (!list || !list[rowIdx]) return;
       const row = list[rowIdx];
+      const map = colIndexMapRef.current;
 
       setSelectedRowIndex(rowIdx);
       setSelectedColIndex(colIdx);
 
       const colDef = GRID_COLUMNS[colIdx];
-      if (colDef.id === '일련번호상태명' && row.일련번호상태명 === '출고') {
+      const stateIdx = map['일련번호상태명'];
+      const statusVal = stateIdx !== undefined ? row[stateIdx] : '';
+
+      if (colDef.id === '일련번호상태명' && statusVal === '출고') {
         handleOpenDetailModal(row);
-      } else if (colDef.id === '삭제' && String(row.삭제가능여부) === '1') {
+      } else if (colDef.id === '삭제') {
         handleDeleteRow(row);
       }
     },
