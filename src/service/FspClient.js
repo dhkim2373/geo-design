@@ -2,8 +2,26 @@ import { jsonToNexacroXml } from './nexacroXml';
 import { NexacroDataset } from './NexacroDataset';
 import axios from 'axios';
 
+// 공통 XML 엔티티 디코더 함수 (특수문자 및 &#32; 공백 변환용)
+const xmlEntityDecoderSnippet = `
+function decodeXmlEntities(str) {
+  if (!str || typeof str !== 'string') return str;
+  return str
+    .replace(/&#32;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+    .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+`;
+
 // 1. [단건/로그인/메뉴 전용] 표준 XML 파서
 const standardXmlWorkerCode = `
+${xmlEntityDecoderSnippet}
+
 self.onmessage = function(e) {
   const { rawText } = e.data;
   try {
@@ -29,7 +47,8 @@ function parseNexacroXML(text) {
 
     const valStart = text.indexOf('>', idEnd) + 1;
     const valEnd = text.indexOf('</Variable>', valStart);
-    parameters[varId] = valEnd !== -1 ? text.substring(valStart, valEnd) : '';
+    const rawVal = valEnd !== -1 ? text.substring(valStart, valEnd) : '';
+    parameters[varId] = decodeXmlEntities(rawVal);
     vPos = valEnd !== -1 ? valEnd + 11 : valStart;
   }
 
@@ -83,6 +102,8 @@ function parseXmlRows(dsContent) {
       let val = rowContent.substring(valStart, valEnd);
       if (val.includes('<![CDATA[')) {
         val = val.replace(/<!\\[CDATA\\[/g, '').replace(/\\]\\]>/g, '');
+      } else {
+        val = decodeXmlEntities(val);
       }
 
       rowObj[colName] = val.length < 16 ? ('' + val) : val.slice(0);
@@ -96,8 +117,10 @@ function parseXmlRows(dsContent) {
 }
 `;
 
-// 2. [대용량 스트리밍 전용] 밀집 배열 기반 파서 (조각 단위 파싱 지원)
+// 2. [대용량 스트리밍 전용] 밀집 배열 기반 파서 (엔티티 디코딩 및 조각 단위 파싱 지원)
 const chunkedArrayWorkerCode = `
+${xmlEntityDecoderSnippet}
+
 self.onmessage = function(e) {
   const { rawText } = e.data;
   try {
@@ -123,7 +146,8 @@ function parseNexacroXMLAsArray(text) {
 
     const valStart = text.indexOf('>', idEnd) + 1;
     const valEnd = text.indexOf('</Variable>', valStart);
-    parameters[varId] = valEnd !== -1 ? text.substring(valStart, valEnd) : '';
+    const rawVal = valEnd !== -1 ? text.substring(valStart, valEnd) : '';
+    parameters[varId] = decodeXmlEntities(rawVal);
     vPos = valEnd !== -1 ? valEnd + 11 : valStart;
   }
 
@@ -180,6 +204,8 @@ function parseNexacroXMLAsArray(text) {
       let val = rowContent.substring(valStart, valEnd);
       if (val.includes('<![CDATA[')) {
         val = val.replace(/<!\\[CDATA\\[/g, '').replace(/\\]\\]>/g, '');
+      } else {
+        val = decodeXmlEntities(val); // 엔티티 디코딩 적용
       }
 
       const targetIdx = colIndexMap[rawCol];
@@ -541,7 +567,6 @@ export class FspClient {
     }
   }
 
-  // [핵심 최적화] 실시간 스트리밍 슬라이싱 파서: 3.5GB 피크를 1GB 대 후반으로 격하시킴
   async fsp_callServiceStream(actionName, cmdName, inputDatasets = {}, otherArg = '', onProgress) {
     const requestData = this.buildPayload(actionName, cmdName, inputDatasets, otherArg);
 
@@ -577,7 +602,6 @@ export class FspClient {
           buffer += decoder.decode(value, { stream: !done });
         }
 
-        // 1. 헤더(<ColumnInfo> 등) 추출
         if (!hasHeaderExtracted) {
           const colInfoEndIdx = buffer.indexOf('</ColumnInfo>');
           if (colInfoEndIdx !== -1) {
@@ -586,11 +610,9 @@ export class FspClient {
           }
         }
 
-        // 2. 누적된 버퍼에서 완성된 </Row> 단위로 실시간 슬라이싱 파싱 후 버퍼 즉시 폐기
         let lastRowIdx;
         while ((lastRowIdx = buffer.lastIndexOf('</Row>')) !== -1 && hasHeaderExtracted) {
           const parseChunk = buffer.substring(0, lastRowIdx + 6);
-          // 처리된 텍스트는 즉시 날려서 100MB+ 거대 문자열 힙 팽창 원천 차단
           buffer = buffer.substring(lastRowIdx + 6);
 
           const wrappedXml = `<Root><Dataset id="ds_oList">${headerInfoChunk}<Rows>${parseChunk}</Rows></Dataset></Root>`;
@@ -609,20 +631,16 @@ export class FspClient {
               }
             }
 
-            // 초기 100건 프리뷰 조기 표출
             if (!isFirstChunkFired && allRows.length >= 100) {
               isFirstChunkFired = true;
               if (onProgress) {
                 onProgress(allRows.slice(0, 100), true, false, columnNames);
               }
             }
-          } catch (e) {
-            // 조각 파싱 중 에러 발생 시 무시하고 다음 루프 진행
-          }
+          } catch (e) {}
         }
 
         if (done) {
-          // 마지막 잔여 버퍼 처리
           if (buffer.includes('<Row>') && hasHeaderExtracted) {
             const wrappedXml = `<Root><Dataset id="ds_oList">${headerInfoChunk}<Rows>${buffer}</Rows></Dataset></Root>`;
             try {
