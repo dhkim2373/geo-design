@@ -25,7 +25,7 @@ export default defineConfig({
   routes: [
     {
       path: '/',
-      component: '@/layouts/MdiLayout',
+      component: '@/layouts/mdiLayout',
     },
     {
       path: '/*',

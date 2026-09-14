@@ -9,10 +9,10 @@ import {
 import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid';
 import '@glideapps/glide-data-grid/dist/index.css';
 
-import { FspClient } from '@/service/FspClient';
-import { NexacroDataset } from '@/service/NexacroDataset';
+import { FspClient } from '@/service/fspClient';
+import { NexacroDataset } from '@/service/nexacroDataset';
 import { gds_authCompany } from '@/service/globalDataset';
-import './SerialManagement.less';
+import './serialManagement.less';
 
 const { Option } = Select;
 

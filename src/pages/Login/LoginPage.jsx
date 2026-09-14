@@ -1,9 +1,9 @@
-// src/pages/Login/LoginPage.jsx
+// src/pages/login/loginPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Input, Checkbox, Button, message } from 'antd';
 import { LockOutlined } from '@ant-design/icons';
-import { FspClient } from '@/service/FspClient';
-import { NexacroDataset } from '@/service/NexacroDataset';
+import { FspClient } from '@/service/fspClient';
+import { NexacroDataset } from '@/service/nexacroDataset';
 import {
   gds_allCompany,
   gds_userInfo,
@@ -16,7 +16,7 @@ import {
   gds_authStore,
   notifyGlobalDatasetChange,
 } from '@/service/globalDataset';
-import './LoginPage.less';
+import './loginPage.less';
 
 export default function LoginPage({ onLoginSuccess }) {
   const [userId, setUserId] = useState('');

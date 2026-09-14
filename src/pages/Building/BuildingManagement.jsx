@@ -2,9 +2,8 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import { Button, message, Tabs, Form, Input } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
-import { FspClient } from '@/service/FspClient';
-import { NexacroDataset } from '@/service/NexacroDataset';
-import './BuildingManagement.less';
+import { NexacroDataset } from '@/service/nexacroDataset';
+import './buildingManagement.less';
 
 const BuildingManagement = () => {
   const [activeTab, setActiveTab] = useState('2');

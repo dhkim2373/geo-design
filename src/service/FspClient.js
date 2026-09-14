@@ -1,5 +1,5 @@
 import { jsonToNexacroXml } from './nexacroXml';
-import { NexacroDataset } from './NexacroDataset';
+import { NexacroDataset } from './nexacroDataset';
 import axios from 'axios';
 
 // 공통 XML 엔티티 디코더 함수 (특수문자 및 &#32; 공백 변환용)
@@ -468,7 +468,7 @@ export class FspClient {
     });
   }
 
-  buildPayload(actionName, cmdName, inputDatasets = {}, otherArg = '') {
+buildPayload(actionName, cmdName, inputDatasets = {}, otherArg = '') {
     const actName = actionName ? actionName : 'nDefaultAction';
     const cName = cmdName ? cmdName : 'execute';
 
@@ -497,25 +497,22 @@ export class FspClient {
       }
     });
 
+    // 전역 gds_userInfo 객체 참조 (NexacroDataset 객체이거나 일반 객체일 경우 대응)
+    let globalUserInfo = null;
+    if (typeof gds_userInfo !== 'undefined' && gds_userInfo) {
+      globalUserInfo = typeof gds_userInfo.toPlainObject === 'function' 
+        ? gds_userInfo.toPlainObject() 
+        : gds_userInfo;
+    } else if (typeof window !== 'undefined' && window.gds_userInfo) {
+      globalUserInfo = typeof window.gds_userInfo.toPlainObject === 'function'
+        ? window.gds_userInfo.toPlainObject()
+        : window.gds_userInfo;
+    }
+
     const datasets = {
       ...processedDatasets,
       fsp_ds_cmd: this.cmdDataset.toPlainObject(),
-      ds_userInfo: {
-        columns: [
-          { id: '사용자ID', type: 'string', size: '30' },
-          { id: '회사코드', type: 'string', size: '30' },
-          { id: 'SESSION_ID', type: 'string', size: '1' },
-          { id: '프로그램ID', type: 'string', size: '100' },
-        ],
-        rows: [
-          {
-            사용자ID: this.userInfo.userId || 'REDBOMBZ',
-            회사코드: this.userInfo.companyCode || '00003',
-            SESSION_ID: this.userInfo.sessionId || '202608300955191804796',
-            프로그램ID: 'REACT_CLIENT',
-          },
-        ],
-      },
+      ds_userInfo: globalUserInfo || { columns: [], rows: [] },
     };
 
     return jsonToNexacroXml(parameters, datasets);

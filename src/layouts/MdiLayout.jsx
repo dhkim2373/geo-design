@@ -1,4 +1,4 @@
-// src/layouts/MdiLayout.jsx
+// src/layouts/mdiLayout.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Layout, Menu, Tabs, Input, Button, Space, Tooltip } from 'antd';
 import {
@@ -14,10 +14,10 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { gds_userInfo, gds_menu, subscribeGlobalDataset } from '@/service/globalDataset';
-import LoginPage from '@/pages/Login/LoginPage';
-import MainDashboard from '@/pages/Home/MainDashboard';
+import LoginPage from '@/pages/login/loginPage';
+import MainDashboard from '@/pages/home/mainDashboard';
 import { getComponentByMenu } from '@/routes/pageRegistry';
-import './MdiLayout.less';
+import './mdiLayout.less';
 
 const { Header, Sider, Content, Footer } = Layout;
 

@@ -1,5 +1,5 @@
 // src/service/globalDataset.js
-import { NexacroDataset } from './NexacroDataset';
+import { NexacroDataset } from './nexacroDataset';
 
 // 1. 넥사크로 전역 데이터셋(gds_*) 인스턴스 생성
 export const gds_allCompany   = new NexacroDataset('gds_allCompany');   // 전체 회사 목록

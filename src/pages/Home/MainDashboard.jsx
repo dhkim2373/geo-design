@@ -1,8 +1,8 @@
-// src/pages/Home/MainDashboard.jsx
+// src/pages/home/mainDashboard.jsx
 import React from 'react';
 import { Button, Input, DatePicker, Checkbox, Empty } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import './MainDashboard.less';
+import './mainDashboard.less';
 
 export default function MainDashboard() {
   return (

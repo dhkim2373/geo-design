@@ -1,8 +1,8 @@
 // src/routes/pageRegistry.js
 import React from 'react';
-import MainDashboard from '@/pages/Home/MainDashboard';
-import BuildingManagement from '@/pages/Building/BuildingManagement';
-import SerialManagement from '@/pages/Tpl/SerialManagement';
+import MainDashboard from '@/pages/home/mainDashboard';
+import BuildingManagement from '@/pages/building/buildingManagement';
+import SerialManagement from '@/pages/tpl/serialManagement';
 
 // 미개발 화면용 기본 플레이스홀더
 const ReadyPage = ({ title, url, menuId }) => (
